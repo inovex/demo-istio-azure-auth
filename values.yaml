@@ -1,0 +1,3 @@
+cookieSetter:
+  image: maximilianbischoff/cookie-setter
+  version: TODO

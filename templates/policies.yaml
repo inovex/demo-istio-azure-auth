@@ -1,0 +1,36 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: ingressgateway
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  jwtRules:
+  # config from: https://login.microsoftonline.com/{{ .Values.azureTenantId }}/.well-known/openid-configuration?appid={{ .Values.azureApp.id }}
+  - issuer: "https://sts.windows.net/{{ .Values.azureTenantId }}/"
+    jwksUri: "https://login.microsoftonline.com/{{ .Values.azureTenantId }}/discovery/keys?appid={{ .Values.azureApp.id }}"
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ingressgateway
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  action: ALLOW
+  rules:
+  # this rule allows all authenticated users access
+  # do not use this, if you want to define ALLOW policies for the users you want to allow
+  - from:
+    - source:
+        requestPrincipals: ["*"]
+  # this rule allows all users access to the required paths for authentication
+  - to:
+    - operation:
+        hosts:
+        - {{ .Values.azureApp.host }}
+        paths:
+        - /login
+        - /loggedin

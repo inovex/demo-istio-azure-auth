@@ -1,0 +1,17 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ingressgateway-deny-me
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        hosts:
+        - example.inovex.io # replace with your host
+    when:
+    - key: request.auth.claims[unique_name]
+      values: ["mbischoff@inovex.de"] # insert your address here to test that access is denied

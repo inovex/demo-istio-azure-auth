@@ -1,0 +1,53 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cookie-setter
+  labels:
+    app: cookie-setter
+spec:
+  selector:
+    app: cookie-setter
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cookie-setter
+  labels:
+    app: cookie-setter
+  annotations:
+    sidecar.istio.io/inject: "true"
+spec:
+  selector:
+    matchLabels:
+      app: cookie-setter
+  template:
+    metadata:
+      labels:
+        app: cookie-setter
+    spec:
+      containers:
+      - image: "{{ .Values.cookieSetter.image }}:{{ .Values.cookieSetter.version }}"
+        imagePullPolicy: Always
+        name: cookie-setter
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        env:
+        - name: OAUTH_FLOW_TYPE
+          value: auth_code
+        - name: TENANT_ID
+          value: {{ .Values.azureTenantId }}
+        - name: CLIENT_ID
+          value: {{ .Values.azureApp.id }}
+        - name: REDIRECT_URI
+          value: https://{{ .Values.azureApp.host }}/loggedin
+        - name: CLIENT_SECRET
+          value: {{ .Values.azureApp.clientSecret }}
+        - name: REQUEST_SCOPE
+          value: {{ .Values.azureApp.scope }}

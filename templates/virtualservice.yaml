@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: prometheus
+spec:
+  hosts:
+  - {{ .Values.azureApp.host }}
+  gateways:
+  - prometheus-gateway
+  http:
+  - name: authenticated-users
+    match:
+    - headers:
+        cookie:
+          regex: ".*access_token=.*"
+    route:
+    - destination:
+        port:
+          number: 9090
+        host: prometheus
+  - match:
+    - name: logged-in-forward
+      uri:
+        exact: /loggedin
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        port:
+          number: 8080
+        host: cookie-setter
+  - redirect:
+      uri: /{{ .Values.azureTenantId }}/oauth2/v2.0/authorize?client_id={{ .Values.azureApp.id }}&response_type=code&redirect_uri=https%3A%2F%2F{{ .Values.azureApp.host }}%2Floggedin&response_mode=form_post&scope={{ .Values.azureApp.scope }}
+      authority: login.microsoftonline.com
+      redirectCode: 302 # temporary redirect simplifies testing, as chrome caches locations given in 301 Responses

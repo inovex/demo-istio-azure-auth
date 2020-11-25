@@ -1,0 +1,55 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: access-token-cookie-to-header
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        portNumber: 8443
+        filterChain:
+          filter:
+            name: "envoy.http_connection_manager"
+            subFilter:
+              name: "envoy.filters.http.jwt_authn"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: set_auth_header.envoy.lua
+        typed_config:
+          "@type": "type.googleapis.com/envoy.config.filter.http.lua.v2.Lua"
+          inlineCode: |
+            function envoy_on_request(request_handle)
+              local headers = request_handle:headers()
+              -- ignore calls to /login and /loggedin
+              local path = headers:get(':path')
+              if path:find("/login") == 1 or path:find("/loggedin") then
+                return
+              end
+              function redirectRequestToLogin()
+                local authority = headers:get(':authority')
+                local location = "https://" .. authority .. "/login"
+                request_handle:respond({[":status"] = "302", ["Location"] = location}, "302 Moved temporarily")
+              end
+              -- add value of access_token Cookie to Authorization Header if exists
+              -- otherwise redirect user to /login
+              local cookieHeader = headers:get("Cookie")
+              if not cookieHeader then
+                redirectRequestToLogin()
+              end
+              local cookies = {}
+              for k, v in string.gmatch(cookieHeader, "([^=]+)=([^;]+)") do
+                cookies[k] = v
+              end
+              local accessToken = cookies.access_token
+              if accessToken then
+                request_handle:headers():add("Authorization", "Bearer " .. accessToken)
+              else
+                redirectRequestToLogin()
+              end
+            end
